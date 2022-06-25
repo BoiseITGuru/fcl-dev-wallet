@@ -82,7 +82,7 @@ func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (s *server) Start() error {
-	s.logger.Info("🌱  Dev Wallet server started, listening for connections on http://localhost:8701")
+	s.logger.WithField("port", "8701").Info("🌱  Starting Dev Wallet Server on port 8701")
 	err := s.http.ListenAndServe()
 	// if err != nil {
 	// 	fmt.Printf("error starting up the server: %s\n", err)
