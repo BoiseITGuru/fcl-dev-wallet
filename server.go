@@ -6,9 +6,12 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 //go:embed bundle.zip
@@ -26,10 +29,11 @@ type Config struct {
 type server struct {
 	http   *http.Server
 	config *Config
+	logger *logrus.Logger
 }
 
 // NewHTTPServer returns a new wallet server listening on provided port number.
-func NewHTTPServer(port uint, config *Config) (*server, error) {
+func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, error) {
 	mux := http.NewServeMux()
 	srv := &server{
 		http: &http.Server{
@@ -37,6 +41,7 @@ func NewHTTPServer(port uint, config *Config) (*server, error) {
 			Handler: mux,
 		},
 		config: config,
+		logger: logger,
 	}
 
 	mux.HandleFunc("/api/", configHandler(srv))
@@ -77,9 +82,13 @@ func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (s *server) Start() error {
+	s.logger.Info("🌱  Dev Wallet server started, listening for connections on http://localhost:8701")
 	err := s.http.ListenAndServe()
-	if err != nil {
-		fmt.Printf("error starting up the server: %s\n", err)
+	// if err != nil {
+	// 	fmt.Printf("error starting up the server: %s\n", err)
+	// }
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
 	}
 
 	return err
