@@ -11,6 +11,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
+	"github.com/onflow/flow-go-sdk"
+	flowHTTP "github.com/onflow/flow-go-sdk/access/http"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,7 +37,7 @@ type server struct {
 
 // NewHTTPServer returns a new wallet server listening on provided port number.
 func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, error) {
-	mux := http.NewServeMux()
+	mux := mux.NewRouter()
 	srv := &server{
 		http: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
@@ -44,10 +47,48 @@ func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, e
 		logger: logger,
 	}
 
-	mux.HandleFunc("/api/", configHandler(srv))
+	api := mux.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/", configHandler(srv))
+	api.HandleFunc("/accounts", getAllAccountsHandler(srv))
+	api.HandleFunc("/accounts/{address}", getAccountHandler(srv))
+	api.HandleFunc("/accounts/{address}/update", updateAccountHandler(srv)).Methods("POST")
+	api.HandleFunc("/accounts/{address}/delete", deleteAccountHandler(srv))
+	api.HandleFunc("/accounts/{address}/fund", fundAccountHandler(srv))
+	api.HandleFunc("/accounts/{address}/fusd", fusdAccountHandler(srv))
+	api.HandleFunc("/accounts/create", createAccountHandler(srv)).Methods("POST")
+
 	mux.HandleFunc("/", devWalletHandler())
 
 	return srv, nil
+}
+
+func NewFlowHTTPClient() *flowHTTP.Client {
+	c, err := flowHTTP.NewClient(flowHTTP.EmulatorHost)
+	Handle(err)
+	return c
+}
+
+func Handle(err error) {
+	if err != nil {
+		fmt.Println("err:", err.Error())
+		panic(err)
+	}
+}
+
+func getAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ctx := context.Background()
+		flowClient := NewFlowHTTPClient()
+		address := flow.HexToAddress(vars["address"])
+		account, err := flowClient.GetAccount(ctx, address)
+		Handle(err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(account)
+		Handle(err)
+	}
 }
 
 // configHandler handles config endpoints
