@@ -12,11 +12,11 @@ interface RuntimeConfig {
 const {publicRuntimeConfig} = getConfig()
 
 const defaultConfig = {
-  flowAccountAddress: publicRuntimeConfig.flowAccountAddress || "",
-  flowAccountPrivateKey: publicRuntimeConfig.flowAccountPrivateKey || "",
-  flowAccountPublicKey: publicRuntimeConfig.flowAccountPublicKey || "",
-  flowAccountKeyId: publicRuntimeConfig.flowAccountKeyId || "",
-  flowAccessNode: publicRuntimeConfig.flowAccessNode || "",
+  flowAccountAddress: publicRuntimeConfig.flowAccountAddress || "f8d6e0586b0a20c7",
+  flowAccountPrivateKey: publicRuntimeConfig.flowAccountPrivateKey || "f8e188e8af0b8b414be59c4a1a15cc666c898fb34d94156e9b51e18bfde754a5",
+  flowAccountPublicKey: publicRuntimeConfig.flowAccountPublicKey || "6e70492cb4ec2a6013e916114bc8bf6496f3335562f315e18b085c19da659bdfd88979a5904ae8bd9b4fd52a07fc759bad9551c04f289210784e7b08980516d2",
+  flowAccountKeyId: publicRuntimeConfig.flowAccountKeyId || "0",
+  flowAccessNode: publicRuntimeConfig.flowAccessNode || "http://localhost:8888",
 }
 
 export const ConfigContext = createContext<RuntimeConfig>(defaultConfig)

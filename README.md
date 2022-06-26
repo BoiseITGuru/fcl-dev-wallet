@@ -10,7 +10,7 @@
     <a href="https://docs.onflow.org/fcl/"><strong>FCL docs»</strong></a>
     <br />
     <br />
-    <a href="https://github.com/onflow/fcl-dev-wallet/issues">Report Bug</a>
+    <a href="https://github.com/boiseitguru/fcl-dev-wallet/issues">Report Bug</a>
     ·
     <a href="#getting-started">Getting Started</a>
   </p>
