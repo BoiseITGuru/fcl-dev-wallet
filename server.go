@@ -8,17 +8,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 
+	"github.com/bjartek/overflow/overflow"
 	"github.com/gorilla/mux"
 	"github.com/onflow/flow-go-sdk"
-	flowHTTP "github.com/onflow/flow-go-sdk/access/http"
 	"github.com/sirupsen/logrus"
 )
 
 //go:embed bundle.zip
 var bundle embed.FS
+
+// TODO: flow config should already be decided before dev-wallet starts
+//go:embed wallet-app/flow.json
+var flowConfig []byte
 
 const bundleZip = "bundle.zip"
 
@@ -27,12 +33,50 @@ type Config struct {
 	PrivateKey string `json:"flowAccountPrivateKey"`
 	PublicKey  string `json:"flowAccountPublicKey"`
 	AccessNode string `json:"flowAccessNode"`
+	Accounts   struct {
+		Service struct {
+			Address string `json:"address"`
+			Key     string `json:"key"`
+		} `json:"emulator-account"`
+	}
+	Contracts map[string]string `json:"contracts"`
 }
 
 type server struct {
-	http   *http.Server
-	config *Config
-	logger *logrus.Logger
+	http     *http.Server
+	config   *Config
+	logger   *logrus.Logger
+	overflow *overflow.Overflow
+}
+
+type FclAccount struct {
+	Type    string    `json:"type"`
+	Address string    `json:"address"`
+	KeyId   int       `json:"keyId"`
+	Label   string    `json:"label"`
+	Scopes  *[]string `json:"scopes"`
+}
+
+type fclAccounts []FclAccount
+
+// TODO: flow config should already be decided before dev-wallet starts
+var tempFlowConfig string
+
+func checkFlowConfig() {
+	if _, e := os.Stat("flow.json"); os.IsNotExist(e) {
+		tempConfig, err := os.CreateTemp("", "flow-*.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if _, err := tempConfig.Write(flowConfig); err != nil {
+			log.Fatal(err)
+		}
+
+		tempConfig.Close()
+
+		tempFlowConfig = tempConfig.Name()
+	}
 }
 
 // NewHTTPServer returns a new wallet server listening on provided port number.
@@ -62,32 +106,111 @@ func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, e
 	return srv, nil
 }
 
-func NewFlowHTTPClient() *flowHTTP.Client {
-	c, err := flowHTTP.NewClient(flowHTTP.EmulatorHost)
-	Handle(err)
-	return c
+func createAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		errJson := json.NewEncoder(w).Encode("OK")
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
 }
 
-func Handle(err error) {
-	if err != nil {
-		fmt.Println("err:", err.Error())
-		panic(err)
+func fusdAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		errJson := json.NewEncoder(w).Encode("OK")
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+
+}
+
+func fundAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		errJson := json.NewEncoder(w).Encode("OK")
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func deleteAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		errJson := json.NewEncoder(w).Encode("OK")
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func updateAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		address := flow.HexToAddress(vars["address"])
+		account, err := server.overflow.State.Accounts().ByAddress(address)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+
+		account.SetName(vars["name"])
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		errJson := json.NewEncoder(w).Encode("OK")
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
 
 func getAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		ctx := context.Background()
-		flowClient := NewFlowHTTPClient()
 		address := flow.HexToAddress(vars["address"])
-		account, err := flowClient.GetAccount(ctx, address)
-		Handle(err)
+		account, err := server.overflow.State.Accounts().ByAddress(address)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(account)
-		Handle(err)
+		errJson := json.NewEncoder(w).Encode(account)
+		if errJson != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func getAllAccountsHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fclAccountList := []FclAccount{}
+
+		for _, account := range *server.overflow.State.Accounts() {
+			fclAccount := FclAccount{
+				Type:    "ACCOUNT",
+				Address: account.Address().String(),
+				KeyId:   0,
+				Label:   account.Name(),
+				Scopes:  new([]string),
+			}
+
+			fclAccountList = append(fclAccountList, fclAccount)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(fclAccountList)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -123,6 +246,18 @@ func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (s *server) Start() error {
+	//Overflow start up
+	var overflowConfig *overflow.OverflowBuilder
+
+	if tempFlowConfig != "" {
+		overflowConfig = overflow.NewOverflowBuilder("emulator", false, 0).Config(tempFlowConfig)
+	} else {
+		overflowConfig = overflow.NewOverflowBuilder("emulator", false, 0)
+	}
+
+	s.overflow = overflowConfig.Start()
+
+	//Dev Wallet UI and API Start Up
 	s.logger.WithField("port", "8701").Info("🌱  Starting Dev Wallet Server on port 8701")
 	err := s.http.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
