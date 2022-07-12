@@ -15,7 +15,11 @@ import (
 
 	"github.com/bjartek/overflow/overflow"
 	"github.com/gorilla/mux"
+	"github.com/onflow/flow-cli/pkg/flowkit"
+	"github.com/onflow/flow-cli/pkg/flowkit/config"
+	"github.com/onflow/flow-cli/pkg/flowkit/util"
 	"github.com/onflow/flow-go-sdk"
+	"github.com/onflow/flow-go-sdk/crypto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -95,28 +99,93 @@ func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, e
 	api.HandleFunc("/", configHandler(srv))
 	api.HandleFunc("/accounts", getAllAccountsHandler(srv))
 	api.HandleFunc("/accounts/{address}", getAccountHandler(srv))
-	api.HandleFunc("/accounts/{address}/update", updateAccountHandler(srv)).Methods("POST")
+	api.HandleFunc("/accounts/{address}/update/{name}", updateAccountHandler(srv))
 	api.HandleFunc("/accounts/{address}/delete", deleteAccountHandler(srv))
 	api.HandleFunc("/accounts/{address}/fund", fundAccountHandler(srv))
 	api.HandleFunc("/accounts/{address}/fusd", fusdAccountHandler(srv))
-	api.HandleFunc("/accounts/create", createAccountHandler(srv)).Methods("POST")
+	api.HandleFunc("/accounts/create/{name}", createAccountHandler(srv))
 
-	mux.HandleFunc("/", devWalletHandler())
+	mux.PathPrefix("/").HandlerFunc(devWalletHandler())
 
 	return srv, nil
 }
 
 func createAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		o := server.overflow
+
+		sigAlgo := crypto.StringToSignatureAlgorithm("ECDSA_P256")
+		hashAlgo := crypto.StringToHashAlgorithm("SHA3_256")
+		seed, err := util.RandomSeed(crypto.MinSeedLength)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		privateKey, err := crypto.GeneratePrivateKey(sigAlgo, seed)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		pubKey := privateKey.PublicKey()
+
+		signerAccount, err := o.State.Accounts().ByName(o.ServiceAccountName())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		account, err := o.Services.Accounts.Create(
+			signerAccount,
+			[]crypto.PublicKey{pubKey},
+			[]int{1000},
+			[]crypto.SignatureAlgorithm{sigAlgo},
+			[]crypto.HashAlgorithm{hashAlgo},
+			[]string{},
+		)
+
+		acctKey := config.AccountKey{
+			Type:       "hex",
+			Index:      0,
+			SigAlgo:    sigAlgo,
+			HashAlgo:   hashAlgo,
+			PrivateKey: privateKey,
+		}
+
+		flowkitAcctKey, err := flowkit.NewAccountKey(acctKey)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		flowkitAcct := &flowkit.Account{}
+		flowkitAcct.SetAddress(account.Address)
+		flowkitAcct.SetName(vars["name"])
+		flowkitAcct.SetKey(flowkitAcctKey)
+
+		o.State.Accounts().AddOrUpdate(flowkitAcct)
+
+		fclAccount := FclAccount{
+			Type:    "ACCOUNT",
+			Address: account.Address.String(),
+			KeyId:   0,
+			Label:   flowkitAcct.Name(),
+			Scopes:  new([]string),
+		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		errJson := json.NewEncoder(w).Encode("OK")
+		errJson := json.NewEncoder(w).Encode(fclAccount)
 		if errJson != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
 
+// TODO:
 func fusdAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -129,6 +198,7 @@ func fusdAccountHandler(server *server) func(w http.ResponseWriter, r *http.Requ
 
 }
 
+// TODO:
 func fundAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -142,11 +212,28 @@ func fundAccountHandler(server *server) func(w http.ResponseWriter, r *http.Requ
 
 func deleteAccountHandler(server *server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		s := server.overflow.State
+
+		address := flow.HexToAddress(vars["address"])
+		acct, err := s.Accounts().ByAddress(address)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		err = server.overflow.State.Accounts().Remove(acct.Name())
+		if err == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		errJson := json.NewEncoder(w).Encode("OK")
 		if errJson != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
@@ -158,6 +245,7 @@ func updateAccountHandler(server *server) func(w http.ResponseWriter, r *http.Re
 		account, err := server.overflow.State.Accounts().ByAddress(address)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		account.SetName(vars["name"])
@@ -167,6 +255,7 @@ func updateAccountHandler(server *server) func(w http.ResponseWriter, r *http.Re
 		errJson := json.NewEncoder(w).Encode("OK")
 		if errJson != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
@@ -178,6 +267,7 @@ func getAccountHandler(server *server) func(w http.ResponseWriter, r *http.Reque
 		account, err := server.overflow.State.Accounts().ByAddress(address)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -185,6 +275,7 @@ func getAccountHandler(server *server) func(w http.ResponseWriter, r *http.Reque
 		errJson := json.NewEncoder(w).Encode(account)
 		if errJson != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
@@ -230,7 +321,7 @@ func configHandler(server *server) func(w http.ResponseWriter, r *http.Request) 
 func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) {
 	zipContent, _ := bundle.ReadFile(bundleZip)
 	zipFS, _ := zip.NewReader(bytes.NewReader(zipContent), int64(len(zipContent)))
-	rootFS := http.FS(zipFS)
+	// rootFS := http.FS(zipFS)
 
 	return func(writer http.ResponseWriter, request *http.Request) {
 		path := strings.TrimPrefix(request.URL.Path, "/")
@@ -241,7 +332,7 @@ func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) 
 		}
 
 		request.URL.Path = path
-		http.FileServer(rootFS).ServeHTTP(writer, request)
+		http.FileServer(http.Dir("./wallet-app/out")).ServeHTTP(writer, request)
 	}
 }
 
@@ -254,6 +345,9 @@ func (s *server) Start() error {
 	} else {
 		overflowConfig = overflow.NewOverflowBuilder("emulator", false, 0)
 	}
+
+	overflowConfig.InitializeAccounts = true
+	overflowConfig.DeployContracts = false
 
 	s.overflow = overflowConfig.Start()
 

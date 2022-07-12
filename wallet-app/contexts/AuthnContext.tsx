@@ -24,7 +24,7 @@ export function AuthnContextProvider({children}: {children: React.ReactNode}) {
   useEffect(() => {
     async function initialize() {
       try {
-        await initializeWallet()
+        // await initializeWallet()
         setIsInitialized(true)
       } catch (error) {
         setError(`Dev wallet initialization failed: ${error}`)

@@ -7,14 +7,16 @@ export default function useAccounts() {
   const [isLoading, setIsLoading] = useState(true)
 
   function fetchAccounts() {
-    getAccounts()
-      .then(accounts => {
-        setAccounts(accounts)
-      })
-      .catch(error => {
-        setError(error)
-      })
-      .finally(() => setIsLoading(false))
+    // getAccounts()
+    //   .then(accounts => {
+    //     setAccounts(accounts)
+    //   })
+    //   .catch(error => {
+    //     setError(error)
+    //   })
+    //   .finally(() => setIsLoading(false))
+
+    console.log(getAccounts())
   }
 
   useEffect(() => {

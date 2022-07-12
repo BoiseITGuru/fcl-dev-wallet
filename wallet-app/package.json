@@ -13,7 +13,7 @@
     "check": "eslint . && npm run tsc",
     "export": "next export",
     "bundle": "next build && next export",
-    "zip": "zip -r bundle.zip ./out"
+    "zip": "zip -r bundle.zip ./out/"
   },
   "dependencies": {
     "@emotion/react": "^11.9.0",
@@ -27,6 +27,7 @@
     "@theme-ui/color": "^0.14.5",
     "@theme-ui/css": "^0.14.5",
     "@theme-ui/match-media": "^0.14.5",
+    "axios": "^0.27.2",
     "cors": "^2.8.5",
     "elliptic": "^6.5.4",
     "formik": "^2.2.9",
