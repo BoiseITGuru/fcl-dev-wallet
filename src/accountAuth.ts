@@ -14,6 +14,7 @@ const getSignature = (key: string, accountProofData: AccountProofData) => {
   return sign(key, WalletUtils.encodeAccountProof(accountProofData))
 }
 
+
 function proveAuthn(
   flowAccountPrivateKey: string,
   address: string,
