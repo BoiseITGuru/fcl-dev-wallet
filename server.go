@@ -6,12 +6,12 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
+
+	"github.com/sirupsen/logrus"
 )
 
 //go:embed bundle.zip
@@ -35,10 +35,11 @@ type Config struct {
 type server struct {
 	http   *http.Server
 	config *Config
+	logger *logrus.Logger
 }
 
 // NewHTTPServer returns a new wallet server listening on provided port number.
-func NewHTTPServer(port uint, config *Config) (*server, error) {
+func NewHTTPServer(port uint, config *Config, logger *logrus.Logger) (*server, error) {
 	mux := http.NewServeMux()
 	srv := &server{
 		http: &http.Server{
@@ -46,6 +47,7 @@ func NewHTTPServer(port uint, config *Config) (*server, error) {
 			Handler: mux,
 		},
 		config: config,
+		logger: logger,
 	}
 
 	mux.HandleFunc("/api/", configHandler(srv))
@@ -85,22 +87,16 @@ func devWalletHandler() func(writer http.ResponseWriter, request *http.Request) 
 	}
 }
 
-func (s *server) Start() {
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+func (s *server) Start() error {
+	s.logger.WithField("port", "8701").Info("🌱  Starting Dev Wallet Server on port 8701")
+	err := s.http.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
 
-	go func() {
-		err := s.http.ListenAndServe()
-		if err != nil {
-			fmt.Printf("error starting up the server: %s\n", err)
-			done <- syscall.SIGTERM
-		}
-	}()
-
-	<-done
-	s.Stop()
+	return err
 }
 
 func (s *server) Stop() {
-	_ = s.http.Shutdown(context.Background())
+	s.http.Shutdown(context.Background())
 }
