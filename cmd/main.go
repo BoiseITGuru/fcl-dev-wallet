@@ -2,11 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	wallet "github.com/onflow/fcl-dev-wallet"
+	wallet "github.com/boiseitguru/fcl-dev-wallet"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	logger := logrus.New()
+	logger.Out = os.Stdout
+
 	srv, err := wallet.NewHTTPServer(8701, &wallet.Config{
 		Address:               "0xf8d6e0586b0a20c7",
 		PrivateKey:            "f8e188e8af0b8b414be59c4a1a15cc666c898fb34d94156e9b51e18bfde754a5",
@@ -18,7 +23,7 @@ func main() {
 		ContractFlowToken:     "0x0ae53cb6e3f42a79",
 		ContractFUSD:          "0xf8d6e0586b0a20c7",
 		ContractFCLCrypto:     "0xf8d6e0586b0a20c7",
-	})
+	}, logger)
 	if err != nil {
 		panic(err)
 	}
