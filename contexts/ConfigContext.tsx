@@ -1,7 +1,12 @@
 import React, {createContext, useEffect, useState} from "react"
-import getConfig from "next/config"
+import fclConfig from "src/fclConfig"
 
 interface RuntimeConfig {
+  baseUrl: string
+  contractFungibleToken: string
+  contractFlowToken: string
+  contractFUSD: string
+  contractFCLCrypto: string
   flowAccountAddress: string
   flowAccountPrivateKey: string
   flowAccountPublicKey: string
@@ -9,28 +14,48 @@ interface RuntimeConfig {
   flowAccessNode: string
 }
 
-const {publicRuntimeConfig} = getConfig()
+interface StaticConfig {
+  avatarUrl: string
+  flowInitAccountsNo: number
+  tokenAmountFLOW: string
+  tokenAmountFUSD: string
+}
 
 const defaultConfig = {
-  flowAccountAddress: publicRuntimeConfig.flowAccountAddress || "f8d6e0586b0a20c7",
-  flowAccountPrivateKey: publicRuntimeConfig.flowAccountPrivateKey || "f8e188e8af0b8b414be59c4a1a15cc666c898fb34d94156e9b51e18bfde754a5",
-  flowAccountPublicKey: publicRuntimeConfig.flowAccountPublicKey || "6e70492cb4ec2a6013e916114bc8bf6496f3335562f315e18b085c19da659bdfd88979a5904ae8bd9b4fd52a07fc759bad9551c04f289210784e7b08980516d2",
-  flowAccountKeyId: publicRuntimeConfig.flowAccountKeyId || "0",
-  flowAccessNode: publicRuntimeConfig.flowAccessNode || "http://localhost:8888",
+  baseUrl: process.env.baseUrl || "",
+  contractFungibleToken: process.env.contractFungibleToken || "",
+  contractFlowToken: process.env.contractFlowToken || "",
+  contractFUSD: process.env.contractFUSD || "",
+  contractFCLCrypto: process.env.contractFCLCrypto || "",
+  flowAccountAddress: process.env.flowAccountAddress || "",
+  flowAccountPrivateKey: process.env.flowAccountPrivateKey || "",
+  flowAccountPublicKey: process.env.flowAccountPublicKey || "",
+  flowAccountKeyId: process.env.flowAccountKeyId || "",
+  flowAccessNode: process.env.flowAccessNode || "",
 }
 
 export const ConfigContext = createContext<RuntimeConfig>(defaultConfig)
 
-export async function fetchConfigFromAPI(): Promise<RuntimeConfig> {
-  if (publicRuntimeConfig.isLocal) {
+export function getStaticConfig(): StaticConfig {
+  // Should we set sensible defaults here?
+  return {
+    avatarUrl: process.env.avatarUrl || "",
+    flowInitAccountsNo: parseInt(process.env.flowInitAccountsNo || "0") || 0,
+    tokenAmountFLOW: process.env.tokenAmountFLOW || "",
+    tokenAmountFUSD: process.env.tokenAmountFUSD || "",
+  }
+}
+
+async function getConfig(): Promise<RuntimeConfig> {
+  if (process.env.isLocal) {
     return defaultConfig
   }
 
-  return fetch("http://localhost:8701/api/")
+  const result = await fetch("http://localhost:8701/api/")
     .then(res => res.json())
     .catch(e => {
       console.log(
-        `Warning: Failed to fetch config from API. 
+        `Warning: Failed to fetch config from API.
          If you see this warning during CI you can ignore it.
          Returning default config.
          ${e}
@@ -38,6 +63,8 @@ export async function fetchConfigFromAPI(): Promise<RuntimeConfig> {
       )
       return defaultConfig
     })
+
+  return result
 }
 
 export function ConfigContextProvider({children}: {children: React.ReactNode}) {
@@ -45,7 +72,24 @@ export function ConfigContextProvider({children}: {children: React.ReactNode}) {
 
   useEffect(() => {
     async function fetchConfig() {
-      const config = await fetchConfigFromAPI()
+      const config = await getConfig()
+
+      const {
+        flowAccessNode,
+        flowAccountAddress,
+        contractFungibleToken,
+        contractFlowToken,
+        contractFUSD,
+      } = config
+
+      fclConfig(
+        flowAccessNode,
+        flowAccountAddress,
+        contractFungibleToken,
+        contractFlowToken,
+        contractFUSD
+      )
+
       setConfig(config)
     }
 
