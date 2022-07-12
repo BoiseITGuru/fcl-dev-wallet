@@ -1,10 +1,12 @@
-import {useEffect, useState} from "react"
+import {useCallback, useEffect, useState} from "react"
 import {Account, getAccounts} from "src/accounts"
+import useConfig from "hooks/useConfig"
 
 export default function useAccounts() {
   const [accounts, setAccounts] = useState<Array<Account>>([])
   const [error, setError] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const {flowAccountAddress} = useConfig()
 
   function fetchAccounts() {
     // getAccounts()
@@ -19,9 +21,20 @@ export default function useAccounts() {
     console.log(getAccounts())
   }
 
+  // const fetchAccounts = useCallback(() => {
+  //   getAccounts({flowAccountAddress})
+  //     .then(accounts => {
+  //       setAccounts(accounts)
+  //     })
+  //     .catch(error => {
+  //       setError(error)
+  //     })
+  //     .finally(() => setIsLoading(false))
+  // }, [flowAccountAddress])
+
   useEffect(() => {
     fetchAccounts()
-  }, [])
+  }, [fetchAccounts])
 
   return {
     data: accounts,

@@ -1,4 +1,4 @@
-module github.com/boiseitguru/fcl-dev-wallet
+module github.com/onflow/fcl-dev-wallet
 
 go 1.17
 

@@ -33,10 +33,17 @@ var flowConfig []byte
 const bundleZip = "bundle.zip"
 
 type Config struct {
-	Address    string `json:"flowAccountAddress"`
-	PrivateKey string `json:"flowAccountPrivateKey"`
-	PublicKey  string `json:"flowAccountPublicKey"`
-	AccessNode string `json:"flowAccessNode"`
+<<<<<<< HEAD
+	Address               string `json:"flowAccountAddress"`
+	PrivateKey            string `json:"flowAccountPrivateKey"`
+	PublicKey             string `json:"flowAccountPublicKey"`
+	AccountKeyID          string `json:"flowAccountKeyId"`
+	AccessNode            string `json:"flowAccessNode"`
+	BaseURL               string `json:"baseUrl"`
+	ContractFungibleToken string `json:"contractFungibleToken"`
+	ContractFlowToken     string `json:"contractFlowToken"`
+	ContractFUSD          string `json:"contractFUSD"`
+	ContractFCLCrypto     string `json:"contractFCLCrypto"`
 	Accounts   struct {
 		Service struct {
 			Address string `json:"address"`
