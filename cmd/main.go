@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	wallet "github.com/boiseitguru/fcl-dev-wallet"
+	wallet "github.com/onflow/fcl-dev-wallet"
 	"github.com/sirupsen/logrus"
 )
 
