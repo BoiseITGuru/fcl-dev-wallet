@@ -55,7 +55,7 @@ async function getConfig(): Promise<RuntimeConfig> {
     .then(res => res.json())
     .catch(e => {
       console.log(
-        `Warning: Failed to fetch config from API. 
+        `Warning: Failed to fetch config from API.
          If you see this warning during CI you can ignore it.
          Returning default config.
          ${e}
